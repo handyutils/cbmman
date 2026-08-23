@@ -1563,7 +1563,18 @@ impl App {
             Cell::from("size").style(Style::default().add_modifier(Modifier::BOLD)),
         ]))
         .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
-        frame.render_stateful_widget(table, area, &mut state);
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .split(area);
+        frame.render_stateful_widget(table, chunks[0], &mut state);
+        let root_text = self
+            .projects
+            .get(self.menu_cursor)
+            .map(|p| format!("  root: {}", p.root))
+            .unwrap_or_default();
+        let foot = Paragraph::new(Line::from(root_text)).style(Style::default().fg(Color::DarkGray));
+        frame.render_widget(foot, chunks[1]);
     }
 
     fn render_form(&self, frame: &mut Frame, area: Rect) {

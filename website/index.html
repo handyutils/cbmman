@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cbmman — TUI manager for codebase-memory-mcp</title>
+<meta name="description" content="Interactive TUI manager for codebase-memory-mcp. Index, query and monitor codebase knowledge graphs from the terminal. Bash + Rust.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        ink: '#0f172a', muted: '#64748b', line: '#e2e8f0',
+        accent: '#6366f1', accent2: '#06b6d4', paper: '#f8fafc',
+        code: '#0b1220', codeline: '#1e293b'
+      },
+      fontFamily: {
+        sans: ['Inter','system-ui','sans-serif'],
+        mono: ['JetBrains Mono','monospace'],
+        display: ['Fraunces','serif'],
+      }
+    }
+  }
+}
+</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+<body class="bg-white text-ink font-sans antialiased" x-data="docsApp()" x-init="init()">
+
+<!-- Top bar -->
+<header class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-line">
+  <div class="max-w-[1280px] mx-auto px-5 h-[56px] flex items-center gap-4">
+    <a href="#" class="flex items-center gap-2 shrink-0">
+      <span class="w-7 h-7 rounded-lg bg-ink text-white grid place-items-center font-mono text-xs font-bold">cb</span>
+      <span class="font-display font-semibold tracking-tight">cbmman</span>
+      <span class="hidden sm:inline text-xs text-muted border border-line rounded-full px-2 py-0.5">v0.1.0</span>
+    </a>
+    <nav class="hidden md:flex items-center gap-5 text-sm text-muted ml-6">
+      <a href="#quickstart" class="hover:text-ink">Quick start</a>
+      <a href="#commands" class="hover:text-ink">Commands</a>
+      <a href="#config" class="hover:text-ink">Config</a>
+    </nav>
+    <!-- Search -->
+    <div class="flex-1 flex justify-end">
+      <label class="relative w-full max-w-[360px] hidden sm:block">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </span>
+        <input x-model="q" @keydown.escape="q=''" placeholder="Search docs…  ( / )" class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-line bg-paper text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent">
+        <span class="absolute right-2 top-1/2 -translate-y-1/2 hidden lg:inline text-[10px] border border-line rounded px-1 py-0.5 text-muted"><span x-text="isMac ? '⌘K' : 'Ctrl K'"></span></span>
+      </label>
+      <!-- mobile search toggle -->
+      <button @click="mobileSearch=!mobileSearch" class="sm:hidden p-2 text-muted">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
+    </div>
+    <div class="hidden md:flex items-center gap-2 ml-2">
+      <a href="https://github.com/handyutils/cbmman" target="_blank" class="text-xs border border-line rounded-full px-3 py-1.5 hover:bg-paper">GitHub</a>
+      <a href="https://crates.io/crates/cbmman" target="_blank" class="text-xs bg-ink text-white rounded-full px-3 py-1.5">crates.io</a>
+    </div>
+  </div>
+  <!-- mobile search -->
+  <div x-show="mobileSearch" x-transition class="sm:hidden border-t border-line px-5 py-2 bg-paper">
+    <input x-model="q" placeholder="Search docs…" class="w-full px-3 py-2 rounded-lg border border-line bg-white text-sm">
+  </div>
+</header>
+
+<div class="max-w-[1280px] mx-auto px-5 flex">
+  <!-- Sidebar -->
+  <aside class="hidden lg:block w-[240px] shrink-0 sticky top-[56px] h-[calc(100vh-56px)] overflow-auto py-6 pr-4">
+    <div class="space-y-6 text-sm">
+      <div>
+        <div class="text-[11px] tracking-widest font-semibold text-muted uppercase mb-2">Start here</div>
+        <ul class="space-y-1">
+          <li><a href="#quickstart" class="block py-1 text-muted hover:text-ink">Quick start</a></li>
+          <li><a href="#install" class="block py-1 text-muted hover:text-ink">Installation</a></li>
+          <li><a href="#usage" class="block py-1 text-muted hover:text-ink">Usage</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-[11px] tracking-widest font-semibold text-muted uppercase mb-2">Commands</div>
+        <ul class="space-y-1">
+          <template x-for="s in navSections" :key="s.id">
+            <li><a :href="'#'+s.id" class="block py-1 hover:text-ink" :class="q && !matches(s) ? 'text-muted/40' : 'text-muted'"><span x-text="s.label"></span></a></li>
+          </template>
+        </ul>
+      </div>
+      <div>
+        <div class="text-[11px] tracking-widest font-semibold text-muted uppercase mb-2">Reference</div>
+        <ul class="space-y-1">
+          <li><a href="#config" class="block py-1 text-muted hover:text-ink">Configuration</a></li>
+          <li><a href="#env" class="block py-1 text-muted hover:text-ink">Environment</a></li>
+          <li><a href="#cli" class="block py-1 text-muted hover:text-ink">CLI pass-through</a></li>
+        </ul>
+      </div>
+      <div class="pt-4 border-t border-line">
+        <div class="text-xs text-muted">Built on <a href="https://github.com/DeusData/codebase-memory-mcp" class="underline">codebase-memory-mcp</a></div>
+        <div class="text-xs text-muted mt-1"><a href="https://github.com/handyutils/cbmman" class="underline">handyutils/cbmman</a> · MIT</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 min-w-0 py-8 lg:pl-6">
+    <!-- Hero -->
+    <div class="rounded-2xl bg-ink text-white p-7 md:p-9 mb-8">
+      <div class="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-white/60 mb-3">TUI · codebase-memory-mcp</div>
+      <h1 class="font-display text-3xl md:text-4xl leading-tight">Manage your knowledge graphs<br><span class="text-white/60">from the terminal.</span></h1>
+      <p class="text-white/70 mt-3 max-w-2xl">cbmman is a human-friendly TUI for <span class="text-white">codebase-memory-mcp</span> — index, query and monitor codebase graphs without hand-writing JSON tool calls. Two implementations: <b class="text-white">bash + tuish</b> and <b class="text-white">Rust + ratatui</b>.</p>
+      <div class="flex flex-wrap gap-2 mt-5">
+        <a href="#quickstart" class="bg-white text-ink rounded-full px-4 py-2 text-sm font-medium">Quick start →</a>
+        <a href="https://github.com/handyutils/cbmman" class="border border-white/20 rounded-full px-4 py-2 text-sm">View on GitHub</a>
+        <a href="https://crates.io/crates/cbmman" class="border border-white/20 rounded-full px-4 py-2 text-sm">crates.io</a>
+      </div>
+      <div class="mt-6 grid sm:grid-cols-3 gap-3 text-xs">
+        <div class="rounded-xl bg-white/5 border border-white/10 p-3"><div class="text-white/60">Install (Rust)</div><div class="font-mono mt-1">cargo install cbmman</div></div>
+        <div class="rounded-xl bg-white/5 border border-white/10 p-3"><div class="text-white/60">Run (bash)</div><div class="font-mono mt-1">./cbmman.sh</div></div>
+        <div class="rounded-xl bg-white/5 border border-white/10 p-3"><div class="text-white/60">Run (Rust)</div><div class="font-mono mt-1">cbmman</div></div>
+      </div>
+    </div>
+
+    <!-- Search results banner -->
+    <div x-show="q" class="mb-6 text-sm text-muted">
+      <span x-text="filteredCount + ' result' + (filteredCount===1?'':'s') + ' for “' + q + '”'"></span>
+      <button @click="q=''" class="ml-2 underline">clear</button>
+    </div>
+
+    <!-- Quick start -->
+    <section id="quickstart" class="doc-section" x-show="matchesId('quickstart')">
+      <h2 class="doc-h2">Quick start</h2>
+      <div class="prose">
+        <p>Make sure <code>codebase-memory-mcp</code> is installed and on your <code>PATH</code> (or set <code>CBM_BIN</code>).</p>
+        <div class="code-block"><button class="copy-btn" @click="copy($el)">Copy</button><pre><code>codebase-memory-mcp --version
+# Bash (tuish is vendored in ./tuish; auto-cloned if missing)
+./cbmman.sh
+# Rust
+cargo install cbmman
+cbmman</code></pre></div>
+        <p>Non-interactive pass-through for scripting:</p>
+        <div class="code-block"><button class="copy-btn" @click="copy($el)">Copy</button><pre><code>./cbmman.sh cli search_graph '{"project":"my-project","query":"order handler"}'
+./cbmman.sh --version</code></pre></div>
+      </div>
+    </section>
+
+    <!-- Install -->
+    <section id="install" class="doc-section" x-show="matchesId('install')">
+      <h2 class="doc-h2">Installation</h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card">
+          <div class="card-title">Bash + tuish</div>
+          <ul class="list">
+            <li><code>bash</code> 4+, <code>python3</code></li>
+            <li>tuish vendored in <code>tuish/</code> (1.3 MB) — no network on first run</li>
+            <li>Fallback: auto-clones from GitHub if <code>tuish/</code> is deleted</li>
+          </ul>
+          <div class="code-block"><button class="copy-btn" @click="copy($el)">Copy</button><pre><code>git clone https://github.com/handyutils/cbmman
+cd cbmman
+./cbmman.sh</code></pre></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Rust + ratatui</div>
+          <ul class="list">
+            <li>Rust toolchain (<code>cargo</code>)</li>
+            <li>Crates: <code>ratatui 0.29</code>, <code>crossterm 0.28</code></li>
+          </ul>
+          <div class="code-block"><button class="copy-btn" @click="copy($el)">Copy</button><pre><code>cargo install cbmman
+cbmman
+# or from source
+cargo run --release</code></pre></div>
+          <p class="text-xs text-muted mt-2">Binary also ships as <code>./cbmman</code> next to <code>cbmman.rs</code> in <code>~/.scripts/codebase/</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Usage -->
+    <section id="usage" class="doc-section" x-show="matchesId('usage')">
+      <h2 class="doc-h2">Usage</h2>
+      <div class="kbd-row">
+        <span class="kbd">↑</span><span class="kbd">↓</span> navigate · <span class="kbd">Enter</span> select · <span class="kbd">1–8</span>, <span class="kbd">0</span> jump · <span class="kbd">Esc</span> back · <span class="kbd">q</span> quit · <span class="kbd">Ctrl-C</span> anywhere
+      </div>
+      <p class="text-sm text-muted">Main menu has 8 items: Projects, Scan, Graph server, Processes, Configuration, Graph queries, ADR, Maintenance.</p>
+    </section>
+
+    <!-- Commands -->
+    <section id="commands" class="doc-section">
+      <h2 class="doc-h2">Commands</h2>
+      <p class="text-sm text-muted mb-4">Every long-running operation runs in the background with a spinner — the UI never freezes. Search above filters this list.</p>
+
+      <template x-for="sec in sections" :key="sec.id">
+        <div :id="sec.id" class="card mb-4" x-show="matches(sec)">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-[11px] tracking-widest font-semibold text-accent uppercase" x-text="sec.category"></div>
+              <h3 class="font-semibold mt-1" x-text="sec.title"></h3>
+              <p class="text-sm text-muted mt-1" x-text="sec.desc"></p>
+            </div>
+            <span class="hidden sm:inline text-[11px] border border-line rounded-full px-2 py-1 text-muted" x-text="sec.menu"></span>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-1.5" x-show="sec.tags && sec.tags.length">
+            <template x-for="t in sec.tags">
+              <span class="text-[11px] bg-paper border border-line rounded-full px-2 py-1 font-mono" x-text="t"></span>
+            </template>
+          </div>
+          <div x-show="sec.commands && sec.commands.length" class="mt-3 space-y-2">
+            <template x-for="c in sec.commands">
+              <div class="flex items-center gap-2 text-sm">
+                <code class="px-1.5 py-0.5 rounded bg-paper border border-line font-mono text-xs" x-text="c.cmd"></code>
+                <span class="text-muted text-xs" x-text="c.note"></span>
+                <button @click="copyText(c.cmd)" class="ml-auto text-xs underline text-muted">copy</button>
+              </div>
+            </template>
+          </div>
+          <div x-show="sec.snippet" class="code-block mt-3"><button class="copy-btn" @click="copy($el)">Copy</button><pre><code x-text="sec.snippet"></code></pre></div>
+        </div>
+      </template>
+      <div x-show="filteredCount===0 && q" class="text-sm text-muted border border-dashed border-line rounded-xl p-6 text-center">No matches. Try a different query.</div>
+    </section>
+
+    <!-- Config -->
+    <section id="config" class="doc-section" x-show="matchesId('config')">
+      <h2 class="doc-h2">Configuration</h2>
+      <p class="text-sm text-muted mb-3">Edited via the TUI (Configuration → SAVE ALL) or CLI: <code>codebase-memory-mcp config set &lt;key&gt; &lt;value&gt;</code></p>
+      <div class="overflow-auto rounded-xl border border-line">
+        <table class="w-full text-sm">
+          <thead class="bg-paper text-xs uppercase tracking-widest text-muted"><tr><th class="text-left p-3">Key</th><th class="text-left p-3">Default</th><th class="text-left p-3">Notes</th></tr></thead>
+          <tbody class="divide-y divide-line">
+            <tr><td class="p-3 font-mono text-xs">auto_index</td><td class="p-3">false</td><td class="p-3 text-muted">auto-index on connect</td></tr>
+            <tr><td class="p-3 font-mono text-xs">auto_index_limit</td><td class="p-3">50000</td><td class="p-3 text-muted">file limit for auto-index</td></tr>
+            <tr><td class="p-3 font-mono text-xs">auto_watch</td><td class="p-3">true</td><td class="p-3 text-muted">background re-index on changes</td></tr>
+            <tr><td class="p-3 font-mono text-xs">ui_enabled</td><td class="p-3">true</td><td class="p-3 text-muted">graph UI server</td></tr>
+            <tr><td class="p-3 font-mono text-xs">ui_port</td><td class="p-3">9749</td><td class="p-3 text-muted">http://localhost:9749</td></tr>
+            <tr><td class="p-3 font-mono text-xs">ui-lang</td><td class="p-3">auto</td><td class="p-3 text-muted">UI language</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Env -->
+    <section id="env" class="doc-section" x-show="matchesId('env')">
+      <h2 class="doc-h2">Environment</h2>
+      <div class="overflow-auto rounded-xl border border-line">
+        <table class="w-full text-sm">
+          <thead class="bg-paper text-xs uppercase tracking-widest text-muted"><tr><th class="text-left p-3">Variable</th><th class="text-left p-3">Default</th><th class="text-left p-3">Purpose</th></tr></thead>
+          <tbody class="divide-y divide-line">
+            <tr><td class="p-3 font-mono text-xs">CBM_BIN</td><td class="p-3">codebase-memory-mcp</td><td class="p-3 text-muted">binary location</td></tr>
+            <tr><td class="p-3 font-mono text-xs">TUISH_DIR</td><td class="p-3">./tuish</td><td class="p-3 text-muted">bash: tuish checkout dir</td></tr>
+            <tr><td class="p-3 font-mono text-xs">CBM_CACHE_DIR</td><td class="p-3">~/.cache/codebase-memory-mcp</td><td class="p-3 text-muted">process &amp; artifact monitor</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CLI -->
+    <section id="cli" class="doc-section" x-show="matchesId('cli')">
+      <h2 class="doc-h2">CLI pass-through</h2>
+      <p class="text-sm text-muted">For scripting, bypass the TUI:</p>
+      <div class="code-block"><button class="copy-btn" @click="copy($el)">Copy</button><pre><code>./cbmman.sh cli search_graph '{"project":"p","query":"q"}'
+./cbmman.sh cli index_status '{"project":"p"}'
+./cbmman.sh --version
+cbmman cli get_architecture '{"project":"p","aspects":["clusters"]}'</code></pre></div>
+      <p class="text-xs text-muted mt-3">See <a class="underline" href="https://github.com/DeusData/codebase-memory-mcp#readme">codebase-memory-mcp</a> for all tool names and args.</p>
+    </section>
+
+    <footer class="mt-10 pt-6 border-t border-line text-xs text-muted">
+      <div>© 2026 <a class="underline" href="https://github.com/handyutils/cbmman">handyutils/cbmman</a> · MIT · Built on <a class="underline" href="https://github.com/DeusData/codebase-memory-mcp">DeusData/codebase-memory-mcp</a></div>
+      <div class="mt-1">Docs: static, Alpine.js, Tailwind CDN · <a class="underline" href="https://pi.dev/docs/latest">inspired by pi.dev</a> · Hosted on GitHub Pages</div>
+    </footer>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

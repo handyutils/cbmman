@@ -1,0 +1,14 @@
+/* cbmman docs — only non-Tailwind extras live here */
+.doc-section { scroll-margin-top: 72px; margin-bottom: 2rem; }
+.doc-h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+.prose { color: #334155; font-size: 0.95rem; line-height: 1.6; }
+.prose code { font-family: "JetBrains Mono", monospace; font-size: 0.85em; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 0.1rem 0.35rem; border-radius: 0.35rem; }
+.card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; padding: 1rem 1.1rem; }
+.card-title { font-weight: 600; font-size: 0.95rem; }
+.list { list-style: disc; padding-left: 1.2rem; color: #475569; font-size: 0.9rem; margin-top: 0.5rem; }
+.code-block { position: relative; background: #0b1220; color: #e2e8f0; border-radius: 0.75rem; padding: 0.9rem 1rem; overflow: auto; margin-top: 0.75rem; border: 1px solid #1e293b; }
+.code-block pre { margin: 0; font-family: "JetBrains Mono", monospace; font-size: 0.82rem; line-height: 1.6; white-space: pre; }
+.copy-btn { position: absolute; right: 0.5rem; top: 0.5rem; font-size: 11px; border: 1px solid #334155; color: #cbd5e1; background: #0f172a; border-radius: 999px; padding: 0.25rem 0.6rem; }
+.copy-btn:hover { background: #1e293b; }
+.kbd-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; font-size: 0.8rem; color: #475569; margin-top: 0.5rem; }
+.kbd { font-family: "JetBrains Mono", monospace; font-size: 11px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0.35rem; padding: 0.15rem 0.35rem; }
