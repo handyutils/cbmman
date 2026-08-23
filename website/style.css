@@ -7,7 +7,9 @@
 .card-title { font-weight: 600; font-size: 0.95rem; }
 .list { list-style: disc; padding-left: 1.2rem; color: #475569; font-size: 0.9rem; margin-top: 0.5rem; }
 .code-block { position: relative; background: #0b1220; color: #e2e8f0; border-radius: 0.75rem; padding: 0.9rem 1rem; overflow: auto; margin-top: 0.75rem; border: 1px solid #1e293b; }
-.code-block pre { margin: 0; font-family: "JetBrains Mono", monospace; font-size: 0.82rem; line-height: 1.6; white-space: pre; }
+.code-block pre { margin: 0; font-family: "JetBrains Mono", monospace; font-size: 0.82rem; line-height: 1.6; white-space: pre; color: #e2e8f0; background: transparent; }
+.code-block code { font-family: "JetBrains Mono", monospace; font-size: 0.82rem; color: #e2e8f0; background: transparent; padding: 0; border: none; border-radius: 0; }
+.prose .code-block code { font-size: 0.82rem; color: #e2e8f0; background: transparent; padding: 0; border: none; border-radius: 0; }
 .copy-btn { position: absolute; right: 0.5rem; top: 0.5rem; font-size: 11px; border: 1px solid #334155; color: #cbd5e1; background: #0f172a; border-radius: 999px; padding: 0.25rem 0.6rem; }
 .copy-btn:hover { background: #1e293b; }
 .kbd-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; font-size: 0.8rem; color: #475569; margin-top: 0.5rem; }

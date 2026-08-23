@@ -43,8 +43,12 @@ case "${1:-}" in
 		exit 0
 		;;
 	--version|-v)
-		"$CBM_BIN" --version
+		v=$(grep -m1 '^version =' "$(dirname "${BASH_SOURCE[0]}")/Cargo.toml" 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' || echo "dev")
+		echo "cbmman $v"
 		exit 0
+		;;
+	update)
+		exec cargo install cbmman --force
 		;;
 esac
 

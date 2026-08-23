@@ -507,6 +507,8 @@ impl App {
             "Detect changes".into(),
             "Re-scan".into(),
             "Delete project".into(),
+            "Open in Terminal".into(),
+            "Open in Finder".into(),
             "Back".into(),
         ];
         self.menu_cursor = 0;
@@ -856,7 +858,20 @@ impl App {
                 self.confirm_cb = ConfirmCb::DeleteProject;
                 self.push(Screen::Confirm, Rebuild::None);
             }
-            6 => self.back(),
+            6 => {
+                if let Some(p) = self.projects.get(pi) {
+                    let path = p.root.replace("\"", "\\\"");
+                    let _ = Command::new("osascript")
+                        .args(["-e", &format!("tell application \"Terminal\" to do script \"cd {}\"", path)])
+                        .spawn();
+                }
+            }
+            7 => {
+                if let Some(p) = self.projects.get(pi) {
+                    let _ = Command::new("open").arg(&p.root).spawn();
+                }
+            }
+            8 => self.back(),
             _ => {}
         }
     }
@@ -1291,6 +1306,19 @@ impl App {
                     self.push(Screen::Confirm, Rebuild::None);
                 }
             }
+            KeyCode::Char('o') => {
+                if let Some(p) = self.projects.get(self.menu_cursor) {
+                    let path = p.root.replace("\"", "\\\"");
+                    let _ = Command::new("osascript")
+                        .args(["-e", &format!("tell application \"Terminal\" to do script \"cd {}\"", path)])
+                        .spawn();
+                }
+            }
+            KeyCode::Char('f') => {
+                if let Some(p) = self.projects.get(self.menu_cursor) {
+                    let _ = Command::new("open").arg(&p.root).spawn();
+                }
+            }
             KeyCode::Esc => self.back(),
             _ => {}
         }
@@ -1602,7 +1630,7 @@ impl App {
         .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .constraints([Constraint::Min(1), Constraint::Length(3)])
             .split(area);
         frame.render_stateful_widget(table, chunks[0], &mut state);
         let root_text = self
@@ -1610,7 +1638,9 @@ impl App {
             .get(self.menu_cursor)
             .map(|p| format!("  root: {}", p.root))
             .unwrap_or_default();
-        let foot = Paragraph::new(Line::from(root_text)).style(Style::default().fg(Color::DarkGray));
+        let foot = Paragraph::new(Line::from(root_text))
+            .style(Style::default().fg(Color::DarkGray))
+            .wrap(Wrap { trim: false });
         frame.render_widget(foot, chunks[1]);
     }
 
@@ -1695,7 +1725,7 @@ impl App {
     fn render_footer(&self, frame: &mut Frame, area: Rect) {
         let hint = match self.screen {
             Screen::Form => &self.menu_hint,
-            Screen::Projects => "Enter: project actions · n: scan · r: refresh · d: delete · esc: back",
+            Screen::Projects => "Enter: actions · n: scan · r: refresh · d: delete · o: terminal · f: finder · esc: back",
             Screen::Processes => "auto-refreshes · r: refresh · ↑/↓ scroll · esc: back",
             Screen::Output => "↑/↓ · pgup/pgdn · home/end scroll · esc/enter/q back",
             Screen::Confirm => "y: yes · n: no",
@@ -1742,9 +1772,14 @@ pub fn main() -> io::Result<()> {
         std::process::exit(status.code().unwrap_or(1));
     }
     if args.get(1).map(|s| s.as_str()) == Some("--version") {
-        let mut cmd = Command::new(cbm_bin());
-        cmd.arg("--version");
-        let status = cmd.status()?;
+        println!("cbmman {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
+    if args.get(1).map(|s| s.as_str()) == Some("update") {
+        let status = Command::new("cargo")
+            .args(["install", "cbmman", "--force"])
+            .status()?;
         std::process::exit(status.code().unwrap_or(1));
     }
 
