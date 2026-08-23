@@ -7,16 +7,16 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
-VERSION="$1"
-if [[ ! "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+VERSION="${1#v}"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Error: version must be semver, e.g. 0.1.3"
   exit 1
 fi
-TAG="v${VERSION#v}"
+TAG="v$VERSION"
 
-echo "==> Bumping version to $TAG in Cargo.toml"
+echo "==> Bumping version to $VERSION in Cargo.toml"
 if grep -q '^version = ' Cargo.toml; then
-  sed -i.bak "s/^version = \".*\"$/version = \"$TAG\"/" Cargo.toml
+  sed -i.bak "s/^version = \".*\"$/version = \"$VERSION\"/" Cargo.toml
   rm -f Cargo.toml.bak
 else
   echo "Error: version not found in Cargo.toml"

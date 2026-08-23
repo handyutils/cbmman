@@ -1,6 +1,6 @@
 [package]
 name = "cbmman"
-version = "v0.1.3"
+version = "0.1.3"
 edition = "2021"
 description = "Interactive TUI manager for codebase-memory-mcp: index, query, and monitor codebase knowledge graphs from the terminal."
 license = "MIT"
