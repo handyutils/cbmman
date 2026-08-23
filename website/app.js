@@ -56,6 +56,7 @@ function docsApp() {
     mobileSearch: false,
     isMac: navigator.platform.toUpperCase().indexOf('MAC') >= 0,
     latestRelease: null,
+    staticVersion: (document.querySelector('meta[name="cbmman-version"]') || {}).content || '',
     sections,
     navSections,
     get filteredCount() {
@@ -78,7 +79,10 @@ function docsApp() {
       return asset ? asset.browser_download_url : this.latestRelease.html_url;
     },
     releaseVersion() {
-      return this.latestRelease ? this.latestRelease.name || this.latestRelease.tag_name : '';
+      if (this.latestRelease) {
+        return this.latestRelease.name || this.latestRelease.tag_name || '';
+      }
+      return this.staticVersion;
     },
     releaseNotes() {
       if (!this.latestRelease) return '';
