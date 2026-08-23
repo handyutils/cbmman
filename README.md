@@ -6,7 +6,7 @@ Two implementations of the same manager:
 
 | Version | File | TUI toolkit | Requirements |
 |---|---|---|---|
-| Bash | `cbmman.sh` | [tuish](https://github.com/alganet/tuish) | `bash` 4+, `python3`, `git`, `curl` (optional) |
+| Bash | `cbmman.sh` | [tuish](https://github.com/alganet/tuish) — vendored in `tuish/` | `bash` 4+, `python3` |
 | Rust | `cbmman.rs` | [ratatui](https://github.com/ratatui/ratatui) | `cargo` / Rust toolchain |
 
 Both wrap the full `codebase-memory-mcp` CLI so humans can drive it interactively instead of hand-writing JSON tool calls.
@@ -33,7 +33,7 @@ Both wrap the full `codebase-memory-mcp` CLI so humans can drive it interactivel
 # (or set CBM_BIN to its location)
 codebase-memory-mcp --version
 
-# Bash version (auto-bootstraps tuish into ./tuish on first run)
+# Bash version (tuish is vendored in ./tuish; if missing it is auto-cloned on first run)
 ./cbmman.sh
 
 # Rust version

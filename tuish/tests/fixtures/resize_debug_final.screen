@@ -1,0 +1,3 @@
+ tui.sh debug (quit: ctrl+w) | 80x24 | proto:vt | timing:sub | row:1
+    8  signal:resize:1)                                              [S resize]
+                                  [C Z]

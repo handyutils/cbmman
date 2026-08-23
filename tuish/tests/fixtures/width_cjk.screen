@@ -1,0 +1,24 @@
+ width.sh ACID test (quit: ctrl+w  scroll: arrows/pgup/pgdn)
+  If widths are correct, all vertical borders align.
+  +- CJK ideographs (width 2) ---------------------------------+
+  | Chinese              | 中文                     | w=4      |
+  | Japanese kanji       | 日本語                   | w=6      |
+  | single CJK           | 漢                       | w=2      |
+  | CJK + ASCII          | hi中文                   | w=6      |
+  | interleaved          | 中a文b                   | w=6      |
+  | CJK sentence         | 你好世界                 | w=8      |
+  +----------------------+--------------------------+----------+
+  +- Japanese kana (width 2) ----------------------------------+
+  | Hiragana             | あいう                   | w=6      |
+  | Katakana             | アイウ                   | w=6      |
+  | mixed kana           | あアい                   | w=6      |
+  +----------------------+--------------------------+----------+
+  +- Korean (width 2) -----------------------------------------+
+  | Hangul               | 한글                     | w=4      |
+  | Korean word          | 가나다                   | w=6      |
+  | Hangul + ASCII       | 한a글b                   | w=6      |
+  +----------------------+--------------------------+----------+
+  +- Fullwidth Latin (width 2) --------------------------------+
+  | fullwidth A          | Ａ                       | w=2      |
+  | fullwidth ABC        | ＡＢＣ                   | w=6      |
+  | fw vs normal         | AＡ                      | w=3      |

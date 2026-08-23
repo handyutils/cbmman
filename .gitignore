@@ -146,8 +146,3 @@ vite.config.ts.timestamp-*
 /target
 Cargo.lock
 
-# tuish bootstrap (auto-cloned by cbmman.sh)
-/tuish
-
-# codebase-memory-mcp artifacts
-.codebase-memory/

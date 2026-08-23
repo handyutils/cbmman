@@ -1,0 +1,24 @@
+ width.sh ACID test (quit: ctrl+w  scroll: arrows/pgup/pgdn)
+  If widths are correct, all vertical borders align.
+  +- ASCII ----------------------------------------------------+
+  | plain                | Hello, world!            | w=13     |
+  | digits               | 0123456789               | w=10     |
+  | punctuation          | @#$%^&*()_+-=            | w=13     |
+  | single char          | X                        | w=1      |
+  | spaces               | a b c                    | w=5      |
+  +----------------------+--------------------------+----------+
+  +- Latin accented -------------------------------------------+
+  | French               | cafe                     | w=4      |
+  | French (accented)    | café                     | w=4      |
+  | German               | uber                     | w=4      |
+  | German (umlaut)      | über                     | w=4      |
+  | naive                | naïve                    | w=5      |
+  | mixed accents        | résumé                   | w=6      |
+  +----------------------+--------------------------+----------+
+  +- CJK ideographs (width 2) ---------------------------------+
+  | Chinese              | 中文                     | w=4      |
+  | Japanese kanji       | 日本語                   | w=6      |
+  | single CJK           | 漢                       | w=2      |
+  | CJK + ASCII          | hi中文                   | w=6      |
+  | interleaved          | 中a文b                   | w=6      |
+  | CJK sentence         | 你好世界                 | w=8      |

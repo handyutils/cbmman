@@ -1,0 +1,24 @@
+ width.sh ACID test (quit: ctrl+w  scroll: arrows/pgup/pgdn)
+  If widths are correct, all vertical borders align.
+  | Korean word          | 가나다                   | w=6      |
+  | Hangul + ASCII       | 한a글b                   | w=6      |
+  +----------------------+--------------------------+----------+
+  +- Fullwidth Latin (width 2) --------------------------------+
+  | fullwidth A          | Ａ                       | w=2      |
+  | fullwidth ABC        | ＡＢＣ                   | w=6      |
+  | fw vs normal         | AＡ                      | w=3      |
+  +----------------------+--------------------------+----------+
+  +- Width stress (all 10 cols) -------------------------------+
+  | 10 ASCII             | abcdefghij               | w=10     |
+  | 5 CJK                | 一二三四五               | w=10     |
+  | CJK sandwich         | abc中文def               | w=10     |
+  | CJK bookends         | 中abcd中ab               | w=10     |
+  | alternating          | ab中cd中ef               | w=10     |
+  +----------------------+--------------------------+----------+
+  +- Alignment grid (all 10 cols) -----------------------------+
+  | 10 dashes            | ----------               | w=10     |
+  | 5 CJK                | 中中中中中               | w=10     |
+  | 4 narrow + 3 wide    | aaa中中中a               | w=10     |
+  | NWNWNWN              | a中a中a中a               | w=10     |
+  | WNWNWNN              | 中a中a中ab               | w=10     |
+  +----------------------+--------------------------+----------+
