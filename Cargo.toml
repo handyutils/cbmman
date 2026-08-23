@@ -1,16 +1,20 @@
 [package]
 name = "cbmman"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Interactive TUI manager for codebase-memory-mcp: index, query, and monitor codebase knowledge graphs from the terminal."
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/handyutils/cbmman"
 homepage = "https://github.com/handyutils/cbmman"
-documentation = "https://github.com/handyutils/cbmman"
+documentation = "https://docs.rs/cbmman"
 keywords = ["tui", "mcp", "knowledge-graph", "codebase", "ratatui"]
 categories = ["command-line-utilities", "development-tools"]
-include = ["cbmman.rs", "Cargo.toml", "README.md", "LICENSE"]
+include = ["src/lib.rs", "cbmman.rs", "Cargo.toml", "README.md", "LICENSE"]
+
+[lib]
+name = "cbmman"
+path = "src/lib.rs"
 
 [[bin]]
 name = "cbmman"
@@ -20,3 +24,7 @@ path = "cbmman.rs"
 ratatui = "0.29"
 crossterm = "0.28"
 serde_json = "1"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
