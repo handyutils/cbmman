@@ -1,5 +1,7 @@
 # cbmman
 
+**📖 Docs website: <https://handyutils.github.io/cbmman/>** · [crates.io](https://crates.io/crates/cbmman) · [docs.rs](https://docs.rs/cbmman)
+
 Interactive TUI manager for **[codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp)** — a human-friendly front end for indexing and querying codebase knowledge graphs.
 
 This crate is the **Rust** implementation, built on [ratatui](https://github.com/ratatui/ratatui) + crossterm. A companion **bash** implementation (built on [tuish](https://github.com/alganet/tuish)) lives in the same repository: <https://github.com/handyutils/cbmman>.
