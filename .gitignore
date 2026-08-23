@@ -141,3 +141,13 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Rust
+/target
+Cargo.lock
+
+# tuish bootstrap (auto-cloned by cbmman.sh)
+/tuish
+
+# codebase-memory-mcp artifacts
+.codebase-memory/
