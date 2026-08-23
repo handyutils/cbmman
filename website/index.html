@@ -37,7 +37,7 @@ tailwind.config = {
     <a href="#" class="flex items-center gap-2 shrink-0">
       <span class="w-7 h-7 rounded-lg bg-ink text-white grid place-items-center font-mono text-xs font-bold">cb</span>
       <span class="font-display font-semibold tracking-tight">cbmman</span>
-      <span class="hidden sm:inline text-xs text-muted border border-line rounded-full px-2 py-0.5">v0.1.0</span>
+      <span class="hidden sm:inline text-xs text-muted border border-line rounded-full px-2 py-0.5" x-text="releaseVersion() || 'v0.1.0'"></span>
     </a>
     <nav class="hidden md:flex items-center gap-5 text-sm text-muted ml-6">
       <a href="#quickstart" class="hover:text-ink">Quick start</a>
@@ -121,6 +121,15 @@ tailwind.config = {
         <div class="rounded-xl bg-white/5 border border-white/10 p-3"><div class="text-white/60">Run (bash)</div><div class="font-mono mt-1">./cbmman.sh</div></div>
         <div class="rounded-xl bg-white/5 border border-white/10 p-3"><div class="text-white/60">Run (Rust)</div><div class="font-mono mt-1">cbmman</div></div>
         <div class="rounded-xl bg-white/5 border border-white/10 p-3"><div class="text-white/60">Source</div><a href="https://github.com/handyutils/cbmman" target="_blank" class="font-mono mt-1 block text-white/90 underline underline-offset-2 hover:text-white">github.com/handyutils/cbmman</a></div>
+      </div>
+      <div x-show="latestRelease" x-transition class="mt-4 rounded-xl bg-white/5 border border-white/10 p-4">
+        <div class="text-white/60 text-xs mb-2">Latest release: <span x-text="releaseVersion()" class="text-white font-mono"></span></div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <template x-for="asset in (latestRelease && latestRelease.assets || [])" :key="asset.name">
+            <a :href="asset.browser_download_url" target="_blank" class="rounded-full border border-white/20 px-3 py-1 hover:bg-white/10" x-text="asset.name"></a>
+          </template>
+          <a :href="latestRelease ? latestRelease.html_url : '#'" target="_blank" class="rounded-full bg-white text-ink px-3 py-1 font-medium" x-show="latestRelease && (!latestRelease.assets || latestRelease.assets.length === 0)">View on GitHub</a>
+        </div>
       </div>
     </div>
 

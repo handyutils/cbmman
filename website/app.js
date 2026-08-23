@@ -55,12 +55,34 @@ function docsApp() {
     q: '',
     mobileSearch: false,
     isMac: navigator.platform.toUpperCase().indexOf('MAC') >= 0,
+    latestRelease: null,
     sections,
     navSections,
     get filteredCount() {
       if (!this.q) return sections.length;
       const qq = this.q.toLowerCase();
       return sections.filter(s => this.hit(s, qq)).length;
+    },
+    async loadLatestRelease() {
+      try {
+        const res = await fetch('https://api.github.com/repos/handyutils/cbmman/releases/latest');
+        if (res.ok) {
+          this.latestRelease = await res.json();
+        }
+      } catch (e) {
+        console.warn('Failed to load latest release', e);
+      }
+    },
+    releaseUrl(asset) {
+      if (!this.latestRelease) return '#';
+      return asset ? asset.browser_download_url : this.latestRelease.html_url;
+    },
+    releaseVersion() {
+      return this.latestRelease ? this.latestRelease.name || this.latestRelease.tag_name : '';
+    },
+    releaseNotes() {
+      if (!this.latestRelease) return '';
+      return this.latestRelease.body || '';
     },
     hit(s, qq) {
       const hay = [s.title, s.desc, s.category, s.menu, ...(s.tags||[]), ...(s.commands||[]).map(c=>c.cmd+' '+c.note), s.snippet||''].join(' ').toLowerCase();
@@ -76,6 +98,7 @@ function docsApp() {
       return id.includes(qq) || 'quickstart install usage configuration environment cli'.includes(qq) && ['quickstart','install','usage','config','env','cli'].includes(id);
     },
     init() {
+      this.loadLatestRelease();
       document.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.querySelector('input[x-model="q"]')?.focus(); }
         if (e.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); document.querySelector('input[x-model="q"]')?.focus(); }
