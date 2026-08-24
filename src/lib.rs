@@ -48,7 +48,7 @@
 //! <https://github.com/DeusData/codebase-memory-mcp>
 //! <https://github.com/handyutils/cbmman>
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -76,6 +76,16 @@ pub struct Project {
     pub nodes: u64,
     pub edges: u64,
     pub size: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct ProcInfo {
+    pub pid: String,
+    pub cpu: String,
+    pub mem: String,
+    pub rss: u64,
+    pub etime: String,
+    pub command: String,
 }
 
 #[derive(Clone)]
@@ -373,8 +383,10 @@ pub struct App {
     job_active: bool,
 
     // processes
-    proc_lines: Vec<String>,
+    procs: Vec<ProcInfo>,
     proc_scroll: usize,
+    proc_selected: Option<usize>,
+    proc_meta_lines: Vec<String>,
 
     // config
     config: Vec<(String, String)>,
@@ -418,8 +430,10 @@ impl App {
             sel_project: None,
             job_title: String::new(),
             job_active: false,
-            proc_lines: Vec::new(),
+            procs: Vec::new(),
             proc_scroll: 0,
+            proc_selected: None,
+            proc_meta_lines: Vec::new(),
             config: Vec::new(),
             config_loaded: false,
             confirm_msg: String::new(),
@@ -1142,51 +1156,45 @@ impl App {
     }
 
     fn refresh_processes(&mut self) {
-        let mut lines = Vec::new();
-        lines.push("== codebase-memory-mcp processes ==".to_string());
+        let mut procs = Vec::new();
+        let mut total = 0u64;
+        let mut n = 0u64;
         let ps = Command::new("ps")
             .args(["-axo", "pid=,pcpu=,pmem=,rss=,etime=,command="])
             .output();
         if let Ok(o) = ps {
             let text = String::from_utf8_lossy(&o.stdout).to_string();
-            let mut total = 0u64;
-            let mut n = 0u64;
             for line in text.lines() {
                 if !line.contains("codebase-memory-mcp") || line.contains("grep ") {
                     continue;
                 }
                 let mut it = line.split_whitespace();
-                let pid = it.next().unwrap_or("");
-                let cpu = it.next().unwrap_or("");
-                let mem = it.next().unwrap_or("");
+                let pid = it.next().unwrap_or("").to_string();
+                let cpu = it.next().unwrap_or("").to_string();
+                let mem = it.next().unwrap_or("").to_string();
                 let rss = it.next().and_then(|r| r.parse::<u64>().ok()).unwrap_or(0);
-                let et = it.next().unwrap_or("");
+                let et = it.next().unwrap_or("").to_string();
                 let cmd = it.collect::<Vec<_>>().join(" ");
                 total += rss;
                 n += 1;
-                lines.push(format!(
-                    "  pid {:<7} cpu {:>5}%  mem {:>4}%  rss {:<9}  time {:<9}  {}",
-                    pid,
-                    cpu,
-                    mem,
-                    human_size(rss * 1024),
-                    et,
-                    cmd
-                ));
+                procs.push(ProcInfo { pid, cpu, mem, rss, etime: et, command: cmd });
             }
-            lines.push(if n == 0 {
-                "  no processes".to_string()
-            } else {
-                format!("  processes: {}   total rss: {}", n, human_size(total * 1024))
-            });
         }
-        lines.push(String::new());
-        lines.push("== artifacts in cache ==".to_string());
+        self.procs = procs;
+        let mut meta = Vec::new();
+        meta.push("== codebase-memory-mcp processes ==".to_string());
+        meta.push(if n == 0 {
+            "  no processes".to_string()
+        } else {
+            format!("  processes: {}   total rss: {}", n, human_size(total * 1024))
+        });
+        meta.push(String::new());
+        meta.push("== artifacts in cache ==".to_string());
         let cache = std::env::var("CBM_CACHE_DIR")
             .unwrap_or_else(|_| format!("{}/.cache/codebase-memory-mcp", std::env::var("HOME").unwrap_or_default()));
         if let Ok(o) = Command::new("du").arg("-sh").arg(&cache).output() {
             let t = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            lines.push(format!("  cache total: {}", if t.is_empty() { "n/a".into() } else { t }));
+            meta.push(format!("  cache total: {}", if t.is_empty() { "n/a".into() } else { t }));
         }
         if let Ok(o) = Command::new("find")
             .arg(&cache)
@@ -1194,11 +1202,12 @@ impl App {
             .output()
         {
             for line in String::from_utf8_lossy(&o.stdout).lines() {
-                lines.push(format!("  {}", line));
+                meta.push(format!("  {}", line));
             }
         }
-        self.proc_lines = lines;
+        self.proc_meta_lines = meta;
         self.proc_scroll = 0;
+        self.proc_selected = None;
     }
 
     // ── key handling ──
@@ -1467,21 +1476,132 @@ impl App {
     fn key_processes(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Up => {
-                if self.proc_scroll > 0 {
-                    self.proc_scroll -= 1;
+                if self.proc_selected.is_none() {
+                    self.proc_selected = Some(0);
+                } else if let Some(i) = self.proc_selected {
+                    if i > 0 {
+                        self.proc_selected = Some(i - 1);
+                    }
                 }
+                self.ensure_proc_visible();
             }
             KeyCode::Down => {
-                if self.proc_scroll + 1 < self.proc_lines.len() {
-                    self.proc_scroll += 1;
+                if self.proc_selected.is_none() {
+                    self.proc_selected = Some(0);
+                } else if let Some(i) = self.proc_selected {
+                    if i + 1 < self.procs.len() {
+                        self.proc_selected = Some(i + 1);
+                    }
                 }
+                self.ensure_proc_visible();
             }
             KeyCode::Char('r') => self.refresh_processes(),
+            KeyCode::Char('k') => {
+                if let Some(i) = self.proc_selected {
+                    if let Some(p) = self.procs.get(i) {
+                        let pid = p.pid.clone();
+                        self.kill_proc(&pid, false);
+                    }
+                }
+            }
+            KeyCode::Char('K') => {
+                if let Some(i) = self.proc_selected {
+                    if let Some(p) = self.procs.get(i) {
+                        let pid = p.pid.clone();
+                        self.kill_proc(&pid, true);
+                    }
+                }
+            }
+            KeyCode::Char('a') => {
+                self.kill_all_procs();
+            }
             KeyCode::Esc | KeyCode::Char('q') => self.back(),
             _ => {}
         }
     }
 
+    fn ensure_proc_visible(&mut self) {
+        if let Some(i) = self.proc_selected {
+            let meta = self.proc_meta_lines.len();
+            let row = meta + i;
+            if row < self.proc_scroll {
+                self.proc_scroll = row;
+            } else if row >= self.proc_scroll + 10 {
+                self.proc_scroll = row.saturating_sub(5);
+            }
+        }
+    }
+
+    fn kill_proc(&mut self, pid: &str, force: bool) {
+        let sig = if force { "-9" } else { "-TERM" };
+        let label = if force { "force-kill" } else { "stop" };
+        let cmd = Command::new("kill")
+            .args([sig, pid])
+            .output();
+        match cmd {
+            Ok(o) if o.status.success() => {
+                self.msg = format!("{} pid {} ok", label, pid);
+            }
+            Ok(o) => {
+                self.msg = format!("{} pid {} failed: {}", label, pid, String::from_utf8_lossy(&o.stderr).trim());
+            }
+            Err(e) => {
+                self.msg = format!("{} pid {} error: {}", label, pid, e);
+            }
+        }
+        self.refresh_processes();
+    }
+
+    fn kill_all_procs(&mut self) {
+        let pids: Vec<String> = self.procs.iter().map(|p| p.pid.clone()).collect();
+        if pids.is_empty() {
+            self.msg = "no CBM processes to kill".into();
+            return;
+        }
+        let mut failed = 0;
+        for pid in &pids {
+            if let Err(_e) = Command::new("kill").args(["-TERM", pid]).status() {
+                failed += 1;
+            }
+        }
+        if failed == 0 {
+            self.msg = format!("stopped {} CBM processes", pids.len());
+        } else {
+            self.msg = format!("stopped {} of {} CBM processes ({} failed)", pids.len() - failed, pids.len(), failed);
+        }
+        self.refresh_processes();
+    }
+
+    fn on_click(&mut self, _col: u16, row: u16) {
+        let body_top = 1u16;
+        let body_row = row.saturating_sub(body_top);
+        match self.screen {
+            Screen::Menu => {
+                if body_row < self.menu_items.len() as u16 {
+                    self.menu_cursor = body_row as usize;
+                    self.menu_select(self.menu_cursor);
+                }
+            }
+            Screen::Projects => {
+                let header = 1u16;
+                let table_row = body_row.saturating_sub(header);
+                if table_row < self.projects.len() as u16 {
+                    self.menu_cursor = table_row as usize;
+                    self.sel_project = Some(table_row as usize);
+                    self.push(Screen::Menu, Rebuild::Pactions);
+                    self.build_pactions();
+                }
+            }
+            Screen::Processes => {
+                let meta_count = self.proc_meta_lines.len() as u16;
+                let proc_row = body_row.saturating_sub(meta_count);
+                if proc_row < self.procs.len() as u16 {
+                    self.proc_selected = Some(proc_row as usize);
+                }
+            }
+            _ => {}
+        }
+    }
     fn do_delete_done(&mut self) {
         self.load_projects_sync();
         self.sel_project = None;
@@ -1572,12 +1692,20 @@ impl App {
         let items: Vec<ListItem> = self
             .menu_items
             .iter()
-            .map(|item| ListItem::new(Line::from(format!("  {}", item))))
+            .enumerate()
+            .map(|(i, item)| {
+                let prefix = format!("  {}. ", i + 1);
+                let style = Style::default().fg(Color::White);
+                ListItem::new(Line::from(vec![
+                    Span::styled(prefix, Style::default().fg(Color::DarkGray)),
+                    Span::styled(item.clone(), style),
+                ]))
+            })
             .collect();
         let list = List::new(items)
             .block(Block::default().borders(Borders::NONE))
-            .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
-            .highlight_symbol("> ");
+            .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .highlight_symbol("▸ ");
         frame.render_stateful_widget(list, area, &mut state);
     }
 
@@ -1620,14 +1748,16 @@ impl App {
         }
         let mut state = ratatui::widgets::TableState::default();
         state.select(if self.projects.is_empty() { None } else { Some(self.menu_cursor) });
-        let table = Table::new(rows, widths).header(ratatui::widgets::Row::new(vec![
-            Cell::from("name").style(Style::default().add_modifier(Modifier::BOLD)),
-            Cell::from("branch").style(Style::default().add_modifier(Modifier::BOLD)),
-            Cell::from("nodes").style(Style::default().add_modifier(Modifier::BOLD)),
-            Cell::from("edges").style(Style::default().add_modifier(Modifier::BOLD)),
-            Cell::from("size").style(Style::default().add_modifier(Modifier::BOLD)),
-        ]))
-        .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+        let header = ratatui::widgets::Row::new(vec![
+            Cell::from("name").style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Cell::from("branch").style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Cell::from("nodes").style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Cell::from("edges").style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Cell::from("size").style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ]);
+        let table = Table::new(rows, widths)
+            .header(header)
+            .row_highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD));
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(1), Constraint::Length(3)])
@@ -1648,14 +1778,18 @@ impl App {
         let mut lines = Vec::new();
         for (i, f) in self.form_fields.iter().enumerate() {
             let (styled, text): (Style, String) = match f.kind {
-                FieldKind::Action => (Style::default().fg(Color::Yellow), format!("  [ {} ]", f.label)),
+                FieldKind::Action => (Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD), format!("  [ {} ]", f.label)),
                 _ => {
-                    let style = if i == self.form_cursor {
+                    let label_style = Style::default().fg(Color::Cyan);
+                    let value_style = if i == self.form_cursor {
                         Style::default().add_modifier(Modifier::REVERSED)
                     } else {
-                        Style::default()
+                        Style::default().fg(Color::White)
                     };
-                    (style, format!("  {}: {}", f.label, f.value))
+                    let label = Span::styled(format!("{}: ", f.label), label_style);
+                    let value = Span::styled(f.value.clone(), value_style);
+                    lines.push(Line::from(vec![label, value]));
+                    continue;
                 }
             };
             let span = Span::styled(text, styled);
@@ -1672,52 +1806,103 @@ impl App {
             .skip(self.out_scroll)
             .map(|l| Line::from(l.clone()))
             .collect();
-        let p = Paragraph::new(lines).block(Block::default().borders(Borders::NONE));
+        let p = Paragraph::new(lines)
+            .block(Block::default().borders(Borders::NONE))
+            .wrap(Wrap { trim: false });
         frame.render_widget(p, area);
     }
 
     fn render_busy(&self, frame: &mut Frame, area: Rect) {
         let spin = ['-', '\\', '|', '/'];
         let f = (self.tick_c / 2) as usize % 4;
-        let p = Paragraph::new(vec![
-            Line::from(format!("  {}  running… (esc: skip waiting, job continues)", spin[f])),
+        let lines = vec![
+            Line::from(vec![
+                Span::styled(format!("  {}  ", spin[f]), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("running…", Style::default().fg(Color::Yellow)),
+                Span::styled(" (esc: skip waiting, job continues)", Style::default().fg(Color::DarkGray)),
+            ]),
             Line::from("  a background job is executing a codebase-memory-mcp command."),
             Line::from("  long operations (indexing large repos) can take a while."),
-        ])
-        .style(Style::default().fg(Color::Yellow));
+        ];
+        let p = Paragraph::new(lines);
         frame.render_widget(p, area);
     }
 
     fn render_confirm(&self, frame: &mut Frame, area: Rect) {
-        let p = Paragraph::new(vec![
-            Line::from(format!("  {}", self.confirm_msg)),
+        let lines = vec![
+            Line::from(Span::styled(format!("  {}", self.confirm_msg), Style::default().fg(Color::Yellow))),
             Line::from(""),
-            Line::from("  y: yes   n / esc: no"),
-        ]);
+            Line::from(vec![
+                Span::styled("  y: ", Style::default().fg(Color::Green)),
+                Span::styled("yes", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled("   ", Style::default().fg(Color::DarkGray)),
+                Span::styled("n / esc: ", Style::default().fg(Color::Red)),
+                Span::styled("no", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            ]),
+        ];
+        let p = Paragraph::new(lines);
         frame.render_widget(p, area);
     }
 
     fn render_input(&self, frame: &mut Frame, area: Rect) {
-        let p = Paragraph::new(vec![
-            Line::from(format!("  {}", self.input_label)),
+        let lines = vec![
+            Line::from(Span::styled(format!("  {}", self.input_label), Style::default().fg(Color::Cyan))),
             Line::from(""),
             Line::from(Span::styled(
                 format!("  {}", self.input_value),
                 Style::default().add_modifier(Modifier::REVERSED),
             )),
             Line::from(""),
-            Line::from("  Enter: confirm · Esc: cancel"),
-        ]);
+            Line::from(vec![
+                Span::styled("  Enter: ", Style::default().fg(Color::Green)),
+                Span::styled("confirm", Style::default().fg(Color::Green)),
+                Span::styled(" · ", Style::default().fg(Color::DarkGray)),
+                Span::styled("Esc: ", Style::default().fg(Color::Red)),
+                Span::styled("cancel", Style::default().fg(Color::Red)),
+            ]),
+        ];
+        let p = Paragraph::new(lines);
         frame.render_widget(p, area);
     }
 
     fn render_processes(&self, frame: &mut Frame, area: Rect) {
-        let lines: Vec<Line> = self
-            .proc_lines
-            .iter()
-            .skip(self.proc_scroll)
-            .map(|l| Line::from(l.clone()))
-            .collect();
+        let mut lines: Vec<Line> = Vec::new();
+        for (i, meta) in self.proc_meta_lines.iter().enumerate() {
+            if i >= self.proc_scroll && lines.len() < area.height as usize {
+                let style = if meta.starts_with("==") {
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                } else if meta.starts_with("  processes:") || meta.starts_with("  no processes") {
+                    Style::default().fg(Color::Green)
+                } else if meta.starts_with("  cache") {
+                    Style::default().fg(Color::DarkGray)
+                } else {
+                    Style::default().fg(Color::DarkGray)
+                };
+                lines.push(Line::from(Span::styled(meta.clone(), style)));
+            }
+        }
+        let proc_start = self.proc_meta_lines.len();
+        for (i, p) in self.procs.iter().enumerate() {
+            let row = proc_start + i;
+            if row < self.proc_scroll {
+                continue;
+            }
+            if lines.len() >= area.height as usize {
+                break;
+            }
+            let selected = self.proc_selected == Some(i);
+            let text = format!(
+                "  pid {:<7} cpu {:>5}%  mem {:>4}%  rss {:<9}  time {:<9}  {}",
+                p.pid, p.cpu, p.mem, human_size(p.rss * 1024), p.etime, p.command
+            );
+            let style = if selected {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            let prefix = if selected { "▸ " } else { "  " };
+            lines.push(Line::from(Span::styled(format!("{}{}", prefix, text), style)));
+        }
         let p = Paragraph::new(lines).block(Block::default().borders(Borders::NONE));
         frame.render_widget(p, area);
     }
@@ -1726,21 +1911,22 @@ impl App {
         let hint = match self.screen {
             Screen::Form => &self.menu_hint,
             Screen::Projects => "Enter: actions · n: scan · r: refresh · d: delete · o: terminal · f: finder · esc: back",
-            Screen::Processes => "auto-refreshes · r: refresh · ↑/↓ scroll · esc: back",
+            Screen::Processes => "auto-refreshes · ↑/↓ select · k: stop · K: force kill · a: kill all · r: refresh · esc: back",
             Screen::Output => "↑/↓ · pgup/pgdn · home/end scroll · esc/enter/q back",
             Screen::Confirm => "y: yes · n: no",
             Screen::Input => "type value · enter confirm · esc cancel",
             Screen::Busy => "esc: skip waiting (job continues)",
             Screen::Menu => &self.menu_hint,
         };
-        let mut text = format!(" {}", hint);
+        let mut spans = vec![Span::styled(hint, Style::default().fg(Color::DarkGray))];
         if !self.msg.is_empty() {
-            text.push_str(&format!("   |   {}", self.msg));
+            spans.push(Span::styled("   |   ", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled(&self.msg, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
         }
         let block = Block::default()
             .borders(Borders::TOP)
-            .style(Style::default().fg(Color::DarkGray));
-        let p = Paragraph::new(Line::from(Span::styled(text, Style::default().fg(Color::DarkGray))));
+            .style(Style::default().fg(Color::Cyan));
+        let p = Paragraph::new(Line::from(spans));
         frame.render_widget(p.block(block), area);
     }
 }
@@ -1798,10 +1984,18 @@ pub fn run_app(terminal: &mut Terminal<ratatui::backend::CrosstermBackend<std::i
     while app.running {
         terminal.draw(|f| app.render(f))?;
         if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    app.on_key(key);
+            match event::read()? {
+                Event::Key(key) => {
+                    if key.kind == KeyEventKind::Press {
+                        app.on_key(key);
+                    }
                 }
+                Event::Mouse(me) => {
+                    if let MouseEventKind::Down(MouseButton::Left) = me.kind {
+                        app.on_click(me.column, me.row);
+                    }
+                }
+                _ => {}
             }
         }
         app.tick();
