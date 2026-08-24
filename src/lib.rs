@@ -48,7 +48,7 @@
 //! <https://github.com/DeusData/codebase-memory-mcp>
 //! <https://github.com/handyutils/cbmman>
 
-use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -1942,7 +1942,7 @@ impl App {
             if row < self.proc_scroll {
                 continue;
             }
-            if lines.len() >= area.height as usize.saturating_sub(2) {
+            if lines.len() >= (area.height as usize).saturating_sub(2) {
                 break;
             }
             let selected = self.proc_selected == Some(i);
@@ -2037,10 +2037,10 @@ pub fn main() -> io::Result<()> {
     spawn_load_config(tx.clone());
 
     let mut terminal = ratatui::init();
-    let _ = EnableMouseCapture.write_ansi(&mut std::io::stdout());
+    let _ = std::io::Write::write_all(&mut std::io::stdout(), b"\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1015h\x1b[?1006h");
     let mut app = App::new(rx, tx);
     let res = run_app(&mut terminal, &mut app);
-    let _ = DisableMouseCapture.write_ansi(&mut std::io::stdout());
+    let _ = std::io::Write::write_all(&mut std::io::stdout(), b"\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1015l\x1b[?1006l");
     ratatui::restore();
     res
 }
@@ -2059,7 +2059,7 @@ pub fn run_app(terminal: &mut Terminal<ratatui::backend::CrosstermBackend<std::i
                     match me.kind {
                         MouseEventKind::ScrollDown => app.on_scroll(1),
                         MouseEventKind::ScrollUp => app.on_scroll(-1),
-                        MouseEventKind::Down(MouseButton::Left, _) => app.on_click(me.column, me.row),
+                        MouseEventKind::Down(MouseButton::Left) => app.on_click(me.column, me.row),
                         _ => {}
                     }
                 }
