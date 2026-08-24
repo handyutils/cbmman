@@ -1623,7 +1623,7 @@ impl App {
                             self.kill_proc(&pid, false);
                         }
                     }
-                } else if clicked_row + 1 >= area.height as u16 && !self.procs.is_empty() {
+                } else if body_row as usize >= self.proc_meta_lines.len().saturating_sub(1) && !self.procs.is_empty() {
                     self.confirm_msg = format!("Stop all {} CBM processes?", self.procs.len());
                     self.confirm_cb = ConfirmCb::KillAllProcesses;
                     self.push(Screen::Confirm, Rebuild::None);
@@ -1973,7 +1973,7 @@ impl App {
             let prefix = if selected { "▸ " } else { "  " };
             lines.push(Line::from(Span::styled(format!("{}{}", prefix, text), style)));
         }
-        let p = Paragraph::new(lines).block(Block::default().borders(Borders::NONE));
+        let p = Paragraph::new(lines.clone()).block(Block::default().borders(Borders::NONE));
         frame.render_widget(p, area);
         let action_line = if self.procs.is_empty() {
             Line::from(Span::styled("  no processes to stop", Style::default().fg(Color::DarkGray)))
