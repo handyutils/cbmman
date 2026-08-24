@@ -1515,6 +1515,14 @@ impl App {
             KeyCode::Char('a') => {
                 self.kill_all_procs();
             }
+            KeyCode::Enter => {
+                if let Some(i) = self.proc_selected {
+                    if let Some(p) = self.procs.get(i) {
+                        let pid = p.pid.clone();
+                        self.kill_proc(&pid, false);
+                    }
+                }
+            }
             KeyCode::Esc | KeyCode::Char('q') => self.back(),
             _ => {}
         }
@@ -1594,9 +1602,12 @@ impl App {
             }
             Screen::Processes => {
                 let meta_count = self.proc_meta_lines.len() as u16;
-                let proc_row = body_row.saturating_sub(meta_count);
-                if proc_row < self.procs.len() as u16 {
-                    self.proc_selected = Some(proc_row as usize);
+                let clicked_row = body_row + self.proc_scroll;
+                if clicked_row >= meta_count {
+                    let proc_idx = (clicked_row - meta_count) as usize;
+                    if proc_idx < self.procs.len() {
+                        self.proc_selected = Some(proc_idx);
+                    }
                 }
             }
             _ => {}
@@ -1692,15 +1703,7 @@ impl App {
         let items: Vec<ListItem> = self
             .menu_items
             .iter()
-            .enumerate()
-            .map(|(i, item)| {
-                let prefix = format!("  {}. ", i + 1);
-                let style = Style::default().fg(Color::White);
-                ListItem::new(Line::from(vec![
-                    Span::styled(prefix, Style::default().fg(Color::DarkGray)),
-                    Span::styled(item.clone(), style),
-                ]))
-            })
+            .map(|item| ListItem::new(Line::from(Span::styled(item.clone(), Style::default().fg(Color::White)))))
             .collect();
         let list = List::new(items)
             .block(Block::default().borders(Borders::NONE))
@@ -1911,7 +1914,7 @@ impl App {
         let hint = match self.screen {
             Screen::Form => &self.menu_hint,
             Screen::Projects => "Enter: actions · n: scan · r: refresh · d: delete · o: terminal · f: finder · esc: back",
-            Screen::Processes => "auto-refreshes · ↑/↓ select · k: stop · K: force kill · a: kill all · r: refresh · esc: back",
+            Screen::Processes => "auto-refreshes · ↑/↓ select · Enter: stop · k: stop · K: force kill · a: kill all · r: refresh · esc: back",
             Screen::Output => "↑/↓ · pgup/pgdn · home/end scroll · esc/enter/q back",
             Screen::Confirm => "y: yes · n: no",
             Screen::Input => "type value · enter confirm · esc cancel",
