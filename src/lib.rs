@@ -48,7 +48,7 @@
 //! <https://github.com/DeusData/codebase-memory-mcp>
 //! <https://github.com/handyutils/cbmman>
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind};
+use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -1607,7 +1607,45 @@ impl App {
                     let proc_idx = (clicked_row - meta_count) as usize;
                     if proc_idx < self.procs.len() {
                         self.proc_selected = Some(proc_idx);
+                        if let Some(p) = self.procs.get(proc_idx) {
+                            let pid = p.pid.clone();
+                            self.kill_proc(&pid, false);
+                        }
                     }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn on_scroll(&mut self, delta: i16) {
+        match self.screen {
+            Screen::Menu => {
+                if delta > 0 {
+                    self.menu_cursor = (self.menu_cursor + 1).min(self.menu_items.len().saturating_sub(1));
+                } else if delta < 0 {
+                    self.menu_cursor = self.menu_cursor.saturating_sub(1);
+                }
+            }
+            Screen::Projects => {
+                if delta > 0 {
+                    self.menu_cursor = (self.menu_cursor + 1).min(self.projects.len().saturating_sub(1));
+                } else if delta < 0 {
+                    self.menu_cursor = self.menu_cursor.saturating_sub(1);
+                }
+            }
+            Screen::Processes => {
+                if delta > 0 {
+                    self.proc_scroll = (self.proc_scroll + 3).min(self.proc_meta_lines.len() + self.procs.len().saturating_sub(1));
+                } else if delta < 0 {
+                    self.proc_scroll = self.proc_scroll.saturating_sub(3);
+                }
+            }
+            Screen::Output => {
+                if delta > 0 {
+                    self.out_scroll = (self.out_scroll + 3).min(self.out_lines.len().saturating_sub(1));
+                } else if delta < 0 {
+                    self.out_scroll = self.out_scroll.saturating_sub(3);
                 }
             }
             _ => {}
@@ -1710,6 +1748,14 @@ impl App {
             .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD))
             .highlight_symbol("▸ ");
         frame.render_stateful_widget(list, area, &mut state);
+        let help = Paragraph::new(Line::from(vec![
+            Span::styled("  ↑/↓/mouse: navigate  ·  Enter/click: select  ·  1-8: jump  ·  q: quit  ·  esc: back", Style::default().fg(Color::DarkGray)),
+        ]));
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .split(area);
+        frame.render_widget(help, chunks[1]);
     }
 
     fn render_projects(&self, frame: &mut Frame, area: Rect) {
@@ -1774,7 +1820,13 @@ impl App {
         let foot = Paragraph::new(Line::from(root_text))
             .style(Style::default().fg(Color::DarkGray))
             .wrap(Wrap { trim: false });
-        frame.render_widget(foot, chunks[1]);
+        let help = Paragraph::new(Line::from(Span::styled("  Enter: actions · n: scan · r: refresh · d: delete · o: terminal · f: finder · mouse: click to select", Style::default().fg(Color::DarkGray))));
+        let sub = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(1), Constraint::Length(1)])
+            .split(chunks[1]);
+        frame.render_widget(foot, sub[0]);
+        frame.render_widget(help, sub[1]);
     }
 
     fn render_form(&self, frame: &mut Frame, area: Rect) {
@@ -1890,7 +1942,7 @@ impl App {
             if row < self.proc_scroll {
                 continue;
             }
-            if lines.len() >= area.height as usize {
+            if lines.len() >= area.height as usize.saturating_sub(2) {
                 break;
             }
             let selected = self.proc_selected == Some(i);
@@ -1908,20 +1960,28 @@ impl App {
         }
         let p = Paragraph::new(lines).block(Block::default().borders(Borders::NONE));
         frame.render_widget(p, area);
+        let help = Paragraph::new(Line::from(vec![
+            Span::styled("  click/Enter: stop  ·  K: force kill  ·  a: kill all  ·  r: refresh  ·  esc: back", Style::default().fg(Color::DarkGray)),
+        ]));
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .split(area);
+        frame.render_widget(help, chunks[1]);
     }
 
     fn render_footer(&self, frame: &mut Frame, area: Rect) {
         let hint = match self.screen {
             Screen::Form => &self.menu_hint,
             Screen::Projects => "Enter: actions · n: scan · r: refresh · d: delete · o: terminal · f: finder · esc: back",
-            Screen::Processes => "auto-refreshes · ↑/↓ select · Enter: stop · k: stop · K: force kill · a: kill all · r: refresh · esc: back",
+            Screen::Processes => "auto-refreshes · ↑/↓ select · Enter/click: stop · K: force kill · a: kill all · r: refresh · esc: back",
             Screen::Output => "↑/↓ · pgup/pgdn · home/end scroll · esc/enter/q back",
             Screen::Confirm => "y: yes · n: no",
             Screen::Input => "type value · enter confirm · esc cancel",
             Screen::Busy => "esc: skip waiting (job continues)",
             Screen::Menu => &self.menu_hint,
         };
-        let mut spans = vec![Span::styled(hint, Style::default().fg(Color::DarkGray))];
+        let mut spans = vec![Span::styled(hint, Style::default().fg(Color::Cyan))];
         if !self.msg.is_empty() {
             spans.push(Span::styled("   |   ", Style::default().fg(Color::DarkGray)));
             spans.push(Span::styled(&self.msg, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
@@ -1977,8 +2037,10 @@ pub fn main() -> io::Result<()> {
     spawn_load_config(tx.clone());
 
     let mut terminal = ratatui::init();
+    let _ = EnableMouseCapture.write_ansi(&mut std::io::stdout());
     let mut app = App::new(rx, tx);
     let res = run_app(&mut terminal, &mut app);
+    let _ = DisableMouseCapture.write_ansi(&mut std::io::stdout());
     ratatui::restore();
     res
 }
@@ -1994,8 +2056,11 @@ pub fn run_app(terminal: &mut Terminal<ratatui::backend::CrosstermBackend<std::i
                     }
                 }
                 Event::Mouse(me) => {
-                    if let MouseEventKind::Down(MouseButton::Left) = me.kind {
-                        app.on_click(me.column, me.row);
+                    match me.kind {
+                        MouseEventKind::ScrollDown => app.on_scroll(1),
+                        MouseEventKind::ScrollUp => app.on_scroll(-1),
+                        MouseEventKind::Down(MouseButton::Left, _) => app.on_click(me.column, me.row),
+                        _ => {}
                     }
                 }
                 _ => {}
