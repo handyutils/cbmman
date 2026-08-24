@@ -1602,7 +1602,7 @@ impl App {
             }
             Screen::Processes => {
                 let meta_count = self.proc_meta_lines.len() as u16;
-                let clicked_row = body_row + self.proc_scroll;
+                let clicked_row = body_row + self.proc_scroll as u16;
                 if clicked_row >= meta_count {
                     let proc_idx = (clicked_row - meta_count) as usize;
                     if proc_idx < self.procs.len() {
