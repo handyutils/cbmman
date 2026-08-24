@@ -330,6 +330,7 @@ enum FormAction {
 #[derive(Clone, Copy, PartialEq)]
 enum ConfirmCb {
     DeleteProject,
+    KillAllProcesses,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -1446,6 +1447,10 @@ impl App {
                     self.start_tool_job(&format!("Deleting {}", proj), "delete_project", args);
                     self.job_title = format!("Deleting {}", proj);
                 }
+                ConfirmCb::KillAllProcesses => {
+                    self.kill_all_procs();
+                    self.back();
+                }
             },
             KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => self.back(),
             _ => {}
@@ -1513,7 +1518,13 @@ impl App {
                 }
             }
             KeyCode::Char('a') => {
-                self.kill_all_procs();
+                if self.procs.is_empty() {
+                    self.msg = "no CBM processes to stop".into();
+                    return;
+                }
+                self.confirm_msg = format!("Stop all {} CBM processes?", self.procs.len());
+                self.confirm_cb = ConfirmCb::KillAllProcesses;
+                self.push(Screen::Confirm, Rebuild::None);
             }
             KeyCode::Enter => {
                 if let Some(i) = self.proc_selected {
@@ -1612,6 +1623,10 @@ impl App {
                             self.kill_proc(&pid, false);
                         }
                     }
+                } else if clicked_row + 1 >= area.height as u16 && !self.procs.is_empty() {
+                    self.confirm_msg = format!("Stop all {} CBM processes?", self.procs.len());
+                    self.confirm_cb = ConfirmCb::KillAllProcesses;
+                    self.push(Screen::Confirm, Rebuild::None);
                 }
             }
             _ => {}
@@ -1960,14 +1975,21 @@ impl App {
         }
         let p = Paragraph::new(lines).block(Block::default().borders(Borders::NONE));
         frame.render_widget(p, area);
-        let help = Paragraph::new(Line::from(vec![
-            Span::styled("  click/Enter: stop  ·  K: force kill  ·  a: kill all  ·  r: refresh  ·  esc: back", Style::default().fg(Color::DarkGray)),
-        ]));
+        let action_line = if self.procs.is_empty() {
+            Line::from(Span::styled("  no processes to stop", Style::default().fg(Color::DarkGray)))
+        } else {
+            Line::from(vec![
+                Span::styled("  [ ", Style::default().fg(Color::DarkGray)),
+                Span::styled("Stop all", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                Span::styled(" ]  ·  click a process to stop it  ·  K: force kill  ·  r: refresh  ·  esc: back", Style::default().fg(Color::DarkGray)),
+            ])
+        };
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(1), Constraint::Length(1)])
             .split(area);
-        frame.render_widget(help, chunks[1]);
+        frame.render_widget(Paragraph::new(lines).block(Block::default().borders(Borders::NONE)), chunks[0]);
+        frame.render_widget(Paragraph::new(action_line), chunks[1]);
     }
 
     fn render_footer(&self, frame: &mut Frame, area: Rect) {
