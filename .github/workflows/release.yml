@@ -78,6 +78,7 @@ jobs:
           cp target/${{ matrix.target }}/release/cbmman dist/cbmman-${{ matrix.target }}/usr/bin/cbmman
           mkdir -p dist/cbmman-${{ matrix.target }}/DEBIAN
           VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${VERSION#v}"
           printf '%s\n' \
             "Package: cbmman" \
             "Version: $VERSION" \
