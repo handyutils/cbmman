@@ -120,5 +120,5 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
+          RELEASE_TAG: ${{ github.event.inputs.version && 'v' + github.event.inputs.version || github.ref_name }}
         run: gh release create "${RELEASE_TAG}" release/* --repo "${{ github.repository }}" --generate-notes --verify-tag
