@@ -19,6 +19,6 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
-      - run: cargo test --locked
+      - run: cargo test
       - run: cargo clippy --all-targets --all-features -- -D warnings
-      - run: cargo package --locked --no-verify
+      - run: cargo package --no-verify

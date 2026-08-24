@@ -44,8 +44,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --locked
-      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - run: cargo test
+      - run: cargo build --release --target ${{ matrix.target }}
       - name: Package Unix archive
         if: matrix.archive == 'tar.gz'
         shell: bash
