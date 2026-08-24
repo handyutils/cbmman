@@ -4,6 +4,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.1.5)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -60,9 +65,10 @@ jobs:
           mkdir -p dist/cbmman-${{ matrix.target }}/usr/bin
           cp target/${{ matrix.target }}/release/cbmman dist/cbmman-${{ matrix.target }}/usr/bin/cbmman
           mkdir -p dist/cbmman-${{ matrix.target }}/DEBIAN
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
           printf '%s\n' \
             "Package: cbmman" \
-            "Version: ${{ github.ref_name }}" \
+            "Version: $VERSION" \
             "Section: utils" \
             "Priority: optional" \
             "Architecture: ${{ matrix.deb_arch }}" \
